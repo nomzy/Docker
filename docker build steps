@@ -1,0 +1,205 @@
+1. Download and install docker
+	after successful install run the below
+--launch powershell
+docker --version
+docker run --rm hello-world 
+	you should see "Hello from Docker!" output. 
+
+--launch powershell	
+2. Create a project
+mkdir WDTech-API
+cd WDTech-API
+
+	create app.py
+	notepad app.py (this should open notepad authomatically)
+
+paste this
+
+from flask import flask
+import datetime
+
+app = Flask(__name__)
+
+@app.route("/")
+def home():
+	return "Welcome to WDTech API!"
+	
+@app.route("/health")
+def home():
+	return {
+		"status": "healthy",
+		"timestamp": datetime.datetime.now().isoformat()
+	}
+	
+if __name__ == "__main__":
+	app.run(host="0.0.0.0", port=5000)
+	
+
+save and close.
+
+	create requirements.txt
+	notepad requirements.txt (this should open notepad authomatically)
+	
+past thisl
+
+flask
+
+save
+
+3. Create Dockerfile
+
+	notepad Dockerfile
+
+paste this
+
+FROM python:3.11-slim
+
+WORKDIR /app
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY . .
+
+EXPOSE 5000
+
+CMD ["python", "app.py"]
+
+
+save
+
+
+4. Build the Docker Image locally
+still in powershell
+
+docker build -t wdtech/api:1.0.0 .
+
+
+Wait for build to finish
+
+
+5. Tag it Appropriately (Semver)
+
+Already tagged 1.0.0.
+Add latest tag.
+
+docker tag wdtect/api:1.0.0 wdtech/api:latest
+
+
+6. Confirm Image was created Successfully
+
+docker images | findstr wdtech 
+
+should see
+wdtech/api	1.0.0
+wdtech/api	latest
+
+also inspect it 
+
+docker inspect wdtech/api:1.0.0
+
+
+7. Run the Container Locally
+
+docker run -d --name wdtech-api -p 5000:5000 wdtech/api:1.0.0
+
+
+8. Confirm It's Running
+
+docker ps
+
+Should see wdtech-api
+
+
+9. Test It
+Open browser
+
+http://localhost:5000
+
+Welcome to WDTech API!
+
+Test health endpoint
+
+http:/localhost:5000/health
+
+10. View logs
+
+docker logs wdtech-api
+
+live logs
+
+docker logs -f wdtech-api
+
+11. Show Port Exposure
+
+docker port wdtech-api
+5000/tcp -> 0.0.0.0:5000
+
+12. Demonstrate Debugging (Stop container)
+
+docker stop wdtech-api
+docker rm wdtech-api
+
+run interactively
+
+docker run --rm -it --endpoint sh wdtech-api:1.0.0
+
+inside container:
+
+ls -la (should see files)
+
+now break something
+
+Edit app.py and remove this line:
+
+host="0.0.0.0"
+
+change to 
+
+app.run(port=5000)
+
+Rebuild 
+
+docker build -t wdtech/api:1.0.1 .
+
+
+Run again:
+
+docker run -d --name wdtech-api -p 5000:5000 wdtech/api:1.0.1
+
+Now try browser -> it wont work.
+
+
+13. Debug 
+
+docker logs wdtech-api
+
+You'll see it's binding to 127.0.0.1 only
+
+Run interactively:
+
+docker run --rm it --entrypoint sh wdtech/api:1.0.1
+
+
+Bash
+
+python app.py
+
+
+
+How To Explain This Professionally
+
+If someone asks:
+
+“I created a sample WDTech API service, added a Dockerfile, built and tagged the image using semver (1.0.0), verified the image using docker images and inspect, ran the container exposing port 5000, validated via browser, and demonstrated log inspection and interactive debugging using an overridden entrypoint.”
+
+
+What to SAY while demoing (short and senior-sounding)
+
+“I’m using semver tags to keep releases reproducible: 1.0.0 and optionally latest for convenience.”
+
+“I validate the image exists via docker images and docker inspect.”
+
+“I run it with explicit port publishing -p host:container and validate via curl.”
+
+“If it fails, first step is docker logs, then I run it interactively with an overridden entrypoint to debug inside the container.”
