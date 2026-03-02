@@ -1,258 +1,277 @@
 Step 1: Create Project Structure
-
-Base Directory
-mkdir wdtech-property-valuation
-cd wdtech-property-valuation
+Base Directory:
+		mkdir wdtech-property-valuation
+		     cd wdtech-property-valuation
 
 Subdirectory (directory for the app)
-mkdir app
+		mkdir app
+
 
 Step 2: Create the Files
-app\__init__.py (empty file)
+1. __init__.py
+Use:
+		notepad app\__init__.py (empty file)
+OR
+		New-Item -Path "app\__init__.py" -ItemType File
 
-New-Item -Path "app\__init__.py" -ItemType File
+2. models.py
+use: 		
+		notepad app\models.py
+OR
+		New-Item -Path "app\models.py" -ItemType File
 
-app\models.py
+Paste this in models: 
 
-New-Item -Path "app\models.py" -ItemType File
+				from pydantic import BaseModel
 
+				class Property(BaseModel):
+						address: str
+						bedrooms: int
+						bathrooms: int
+						square_feet: float
+						location_score: float
+						year_built: int
 
-from pydantic import BaseModel
+3. main.py
+Use:
+        notepad app\main.py
+OR
+        New-Item -Path "app\main.py" -ItemType File
 
-class Property(BaseModel):
-    address: str
-    bedrooms: int
-    bathrooms: int
-    square_feet: float
-    location_score: float
-    year_built: int
+Paste in main.py:
 
-app\main.py
+				from fastapi import FastAPI
+				from app.models import Property
+				import os
 
-New-Item -Path "app\main.py" -ItemType File
+				app = FastAPI(title="WDTech Property Valuation API")
 
-from fastapi import FastAPI
-from app.models import Property
-import os
+				BASE_PRICE_PER_SQFT = float(os.getenv("BASE_PRICE_PER_SQFT", "150"))
+				API_ENV = os.getenv("APP_ENV", "development")
 
-app = FastAPI(title="WDTech Property Valuation API")
+				@app.get("/health")
+				def health():
+					return {"status": "ok", "env": API_ENV}
 
-BASE_PRICE_PER_SQFT = float(os.getenv("BASE_PRICE_PER_SQFT", "150"))
-API_ENV = os.getenv("APP_ENV", "development")
+				@app.post("/valuate")
+				def valuate_property(property: Property):
+					base_value = property.square_feet * BASE_PRICE_PER_SQFT
+					bedroom_bonus = property.bedrooms * 10000
+					bathroom_bonus = property.bathrooms * 5000
+					location_multiplier = 1 + (property.location_score / 100)
+					age_penalty = max(0, (2024 - property.year_built)) * 200
+					estimated_value = (base_value + bedroom_bonus + bathroom_bonus) * location_multiplier - age_penalty
 
-@app.get("/health")
-def health():
-    return {"status": "ok", "env": API_ENV}
+					return {
+						"address": property.address,
+						"estimated_value": round(estimated_value, 2),
+						"currency": "USD",
+						"env": API_ENV
+					}
 
-@app.post("/valuate")
-def valuate_property(property: Property):
-    base_value = property.square_feet * BASE_PRICE_PER_SQFT
-    bedroom_bonus = property.bedrooms * 10000
-    bathroom_bonus = property.bathrooms * 5000
-    location_multiplier = 1 + (property.location_score / 100)
-    age_penalty = max(0, (2024 - property.year_built)) * 200
-    estimated_value = (base_value + bedroom_bonus + bathroom_bonus) * location_multiplier - age_penalty
+4. requirements.txt
+Use:
+        New-Item -Path "requirements.txt" -ItemType File
 
-    return {
-        "address": property.address,
-        "estimated_value": round(estimated_value, 2),
-        "currency": "USD",
-        "env": API_ENV
-    }
+Paste in requirement.txt:
 
-
-New-Item -Path "requirements.txt" -ItemType File
-
-fastapi
-uvicorn
-pydantic
-Dockerfile
-
-New-Item -Path "Dockerfile" -ItemType File
-
-
-FROM python:3.11-alpine
-
-WORKDIR /app
-
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-COPY . .
-
-EXPOSE 8000
-
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+				fastapi
+				uvicorn
+				pydantic
 
 
-confirm you are app directory and not the base directory
+5. Dockerfile
+Use:
+    New-Item -Path "Dockerfile" -ItemType File
 
-New-Item -Path ".env" -ItemType File
+Paste in Dockerfile:
 
-BASE_PRICE_PER_SQFT=200
-APP_ENV=production
+				FROM python:3.11-alpine
+
+				WORKDIR /app
+
+				COPY requirements.txt .
+				RUN pip install --no-cache-dir -r requirements.txt
+
+				COPY . .
+
+				EXPOSE 8000
+
+				CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+
+
+NEXT: confirm you are app directory and not the base directory
+
+5. .env file:
+Use: 
+    New-Item -Path ".env" -ItemType File
+
+Paste:
+		BASE_PRICE_PER_SQFT=200
+		APP_ENV=development
+
 
 Step 3: Confirm Your Structure Looks Like This
+Use: run tree /F
+	from base directory, run tree /F
 
-from base directory, run tree /F
+if you see, this is wrong:
+					wdtech-property-valuation/
+					├── app/
+					│   ├── __init__.py
+					│   ├── main.py
+					│   └── models.py
+					├── Dockerfile
+					├── requirements.txt
+					└── .env
 
-if you see, this is wrong
 
-wdtech-property-valuation/
-├── app/
-│   ├── __init__.py
-│   ├── main.py
-│   └── models.py
-├── Dockerfile
-├── requirements.txt
-└── .env
+expected is:
+					C:.
+					│   .env
+					│   Dockerfile
+					│   requirements.txt
+					│
+					└───app
+							__init__.py
+							main.py
+							models.py
 
-expected is 
 
-C:.
-│   .env
-│   Dockerfile
-│   requirements.txt
-│
-└───app
-        __init__.py
-        main.py
-        models.py
+If the files are in the wong directory then perform the blow:
 
-Perform the blow 
-
-Move-Item -Path "app\.env" -Destination ".env"
-Move-Item -Path "app\Dockerfile" -Destination "Dockerfile"
-Move-Item -Path "app\requirements.txt" -Destination "requirements.txt"
+		Move-Item -Path "app\.env" -Destination ".env"
+		Move-Item -Path "app\Dockerfile" -Destination "Dockerfile"
+		Move-Item -Path "app\requirements.txt" -Destination "requirements.txt"
 
 Then confirm the structure is correct:
-
-tree /F
+Use: tree /F
 
 You should now see:
 
-C:.
-│   .env
-│   Dockerfile
-│   requirements.txt
-│
-└───app
-        __init__.py
-        main.py
-        models.py
+					C:.
+					│   .env
+					│   Dockerfile
+					│   requirements.txt
+					│
+					└───app
+							__init__.py
+							main.py
+							models.py
 		
-Now Build the docker image
-
-docker build -t wdtech-property-valuation:1.0.0 .
+Now Build the docker image:
+Use: docker build -t wdtech-property-valuation:1.0.0 .
 	
 Now let's confirm the image exists:
+Use: docker images | findstr wdtech-property-valuation
+	    
+		You should see this:
+				docker : WARNING: This output is designed for human readability. For machine-readable output, please use --format.
+				At line:1 char:1
+				+ docker images | findstr wdtech-property-valuation
+				+ ~~~~~~~~~~~~~
+					+ CategoryInfo          : NotSpecified: (WARNING: This o...e use --format.:String) [], RemoteException
+					+ FullyQualifiedErrorId : NativeCommandError
+				 
+				wdtech-property-valuation:1.0.0   cddccb602c51        124MB         29.7MB        
 
-docker images | findstr wdtech-property-valuation
-docker : WARNING: This output is designed for human readability. For machine-readable output, please use --format.
-At line:1 char:1
-+ docker images | findstr wdtech-property-valuation
-+ ~~~~~~~~~~~~~
-    + CategoryInfo          : NotSpecified: (WARNING: This o...e use --format.:String) [], RemoteException
-    + FullyQualifiedErrorId : NativeCommandError
- 
-wdtech-property-valuation:1.0.0   cddccb602c51        124MB         29.7MB        
+start/run the container locally:
+Use: docker run -d -p 8000:8000 --name wdtech-valuation wdtech-property-valuation:1.0.0
+	
+	f83f18fee3efbb983855153aadf21150ac547b590e59c0c3b208be74ca6657ac
 
-start/run the container locally
+See logs:
+Use: docker logs wdtech-valuation
 
-docker run -d -p 8000:8000 --name wdtech-valuation wdtech-property-valuation:1.0.0
-f83f18fee3efbb983855153aadf21150ac547b590e59c0c3b208be74ca6657ac
-
-See logs
-
-docker logs wdtech-valuation
-
-docker : INFO:     Started server process [1]
-At line:1 char:1
-+ docker logs wdtech-valuation
-+ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    + CategoryInfo          : NotSpecified: (INFO:     Started server process [1]:String) [], RemoteException
-    + FullyQualifiedErrorId : NativeCommandError
- 
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
-
-
-docker : INFO:     Started server process [1]
-At line:1 char:1
-+ docker logs wdtech-valuation
-+ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    + CategoryInfo          : NotSpecified: (INFO:     Started server process [1]:String) [], RemoteException
-    + FullyQualifiedErrorId : NativeCommandError
- 
-INFO:     172.17.0.1:55346 - "GET /docs HTTP/1.1" 200 OK
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
-INFO:     172.17.0.1:55346 - "GET /openapi.json HTTP/1.1" 200 OK
+				docker : INFO:     Started server process [1]
+				At line:1 char:1
+				+ docker logs wdtech-valuation
+				+ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+					+ CategoryInfo          : NotSpecified: (INFO:     Started server process [1]:String) [], RemoteException
+					+ FullyQualifiedErrorId : NativeCommandError
+				 
+				INFO:     Waiting for application startup.
+				INFO:     Application startup complete.
+				INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
 
 
-Started server process [1] — app started inside the container
-Application startup complete — FastAPI initialized successfully
-Uvicorn running on http://0.0.0.0:8000 — listening on the correct port
-GET /docs 200 OK — your browser hit the Swagger UI successfully
-GET /openapi.json 200 OK — FastAPI loaded the API schema
+				docker : INFO:     Started server process [1]
+				At line:1 char:1
+				+ docker logs wdtech-valuation
+				+ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+					+ CategoryInfo          : NotSpecified: (INFO:     Started server process [1]:String) [], RemoteException
+					+ FullyQualifiedErrorId : NativeCommandError
+				 
+				INFO:     172.17.0.1:55346 - "GET /docs HTTP/1.1" 200 OK
+				INFO:     Waiting for application startup.
+				INFO:     Application startup complete.
+				INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+				INFO:     172.17.0.1:55346 - "GET /openapi.json HTTP/1.1" 200 OK
+
+
+				Started server process [1] — app started inside the container
+				Application startup complete — FastAPI initialized successfully
+				Uvicorn running on http://0.0.0.0:8000 — listening on the correct port
+				GET /docs 200 OK — your browser hit the Swagger UI successfully
+				GET /openapi.json 200 OK — FastAPI loaded the API schema
 
 
 Now let's move to Task 2 — Run with Environment Variables. 
-First stop and remove the current container:
+    First stop and remove the current container:
+Stop docker:
+          Use:docker stop wdtech-valuation
+	      You should see this:
+                      wdtech-valuation
 
-docker stop wdtech-valuation
-wdtech-valuation
+Remove docker: 
+             Use: docker rm wdtech-valuation
+	         You will see this: 
+                       wdtech-valuation
 
-docker rm wdtech-valuation
-wdtech-valuation
+Then run it with the .env file: 
+         docker run -d -p 8000:8000 --env-file .env --name wdtech-valuation-dev wdtech-property-valuation:1.0.0
 
-Then run it with the .env file:
-
-docker run -d -p 8000:8000 --env-file .env --name wdtech-valuation-dev wdtech-property-valuation:1.0.0
-98f032b87fe3dadb9b1f309d8ac4284ef3accd857283847d027fd4c7d739cad2
+  You should see this: 98f032b87fe3dadb9b1f309d8ac4284ef3accd857283847d027fd4c7d739cad2
 
 Running! Now let's verify the environment variables are applied:
 
-docker exec wdtech-valuation-dev env | findstr BASE_PRICE_PER_SQFT
-BASE_PRICE_PER_SQFT=200
+Run: docker exec wdtech-valuation-dev env | findstr BASE_PRICE_PER_SQFT
+     You should see: BASE_PRICE_PER_SQFT=200
 
-Now let's check the logs:
+Now let's check the logs: docker logs wdtech-valuation-dev
 
-docker logs wdtech-valuation-dev
-
-docker : INFO:     Started server process [1]
-At line:1 char:1
-+ docker logs wdtech-valuation-prod
-+ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    + CategoryInfo          : NotSpecified: (INFO:     Started server process [1]:String) [], RemoteException
-    + FullyQualifiedErrorId : NativeCommandError
- 
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+		docker : INFO:     Started server process [1]
+		At line:1 char:1
+		+ docker logs wdtech-valuation-prod
+		+ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+			+ CategoryInfo          : NotSpecified: (INFO:     Started server process [1]:String) [], RemoteException
+			+ FullyQualifiedErrorId : NativeCommandError
+		 
+		INFO:     Waiting for application startup.
+		INFO:     Application startup complete.
+		INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
 
 Logs confirm the container is running perfectly with the environment variables applied.
-Task 2 is now 100% complete! ✅
+Task 2 is now 100% complete! 
 
-Let's now do a quick test to confirm the $200/sqft is actually being used. Go to your browser and hit:
-
-http://localhost:8000/docs
+Let's now do a quick test to confirm the $200/sqft is actually being used. 
+Go to your browser and hit:      http://localhost:8000/docs
 
 Click on POST /valuate → Try it out → paste this in the request body:
 
-{
-  "address": "123 Main St",
-  "bedrooms": 3,
-  "bathrooms": 2,
-  "square_feet": 1500,
-  "location_score": 8,
-  "year_built": 2005
-}
-Let's now do a quick test to confirm the $200/sqft is actually being used. Go to your browser and hit:
+			{
+			  "address": "123 Main St",
+			  "bedrooms": 3,
+			  "bathrooms": 2,
+			  "square_feet": 1500,
+			  "location_score": 8,
+			  "year_built": 2005
+			}
+Let's now do a quick test to confirm the $200/sqft is actually being used. Go to your browser and hit: refresh
 
-docker ps
+Check containers running: docker ps -a
+You should see:
+
 CONTAINER ID   IMAGE                             COMMAND                  CREATED              STATUS          PORTS           
                               NAMES
 98f032b87fe3   wdtech-property-valuation:1.0.0   "uvicorn app.main:apâ€¦"   About a minute ago   Up 59 seconds   0.0.0.0:8000->
