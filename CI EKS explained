@@ -240,5 +240,3 @@ Kubernetes pulls image from GitLab registry
         ↓
 API live at https://api.wdtech.com/valuate
 The whole process is fully automated — no manual SSH, no manual docker pull, no downtime. Every release is traceable back to a Git tag and a specific Docker image."
-
-That's your full personalized walkthrough. Would you like me to export this as a Word document you can reference during your explanation?
