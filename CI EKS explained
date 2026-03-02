@@ -1,0 +1,244 @@
+
+
+CI/CD Pipeline for EKS — Explained
+What is a CI/CD Pipeline?
+A CI/CD pipeline automates the process of building, testing, and deploying your application every time code is pushed to GitLab. No manual steps needed.
+
+How it works for our Property Valuation API:
+Developer pushes code to GitLab
+        ↓
+Stage 1: BUILD
+- GitLab runner picks up the code
+- Runs: docker build -t wdtech-property-valuation:1.0.0 .
+- Creates the Docker image
+        ↓
+Stage 2: PUSH
+- Logs into GitLab Container Registry
+- Tags the image with the commit tag
+- Pushes image to registry
+        ↓
+Stage 3: DEPLOY
+- Connects to AWS EKS cluster
+- Tells Kubernetes to use the new image
+- Kubernetes pulls it and rolls out the update
+
+The .gitlab-ci.yml file (place in root of project)
+yamlstages:
+  - build
+  - push
+  - deploy
+
+variables:
+  IMAGE_TAG: $CI_REGISTRY_IMAGE:$CI_COMMIT_TAG
+
+# Stage 1 - Build the Docker image
+build:
+  stage: build
+  script:
+    - docker build -t $IMAGE_TAG .
+  only:
+    - tags  # only runs when a version tag is pushed e.g. v1.0.0
+
+# Stage 2 - Push image to GitLab Container Registry
+push:
+  stage: push
+  script:
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    - docker push $IMAGE_TAG
+  only:
+    - tags
+
+# Stage 3 - Deploy to EKS
+deploy:
+  stage: deploy
+  script:
+    - aws eks update-kubeconfig --name wdtech-cluster --region us-east-1
+    - kubectl set image deployment/wdtech-property-valuation wdtech-property-valuation=$IMAGE_TAG
+  only:
+    - tags
+```
+
+---
+
+### What each part does:
+
+**Build stage:**
+- `docker build` creates the image from our Dockerfile
+- Uses the Git tag as the image version e.g. `v1.0.0`
+
+**Push stage:**
+- `$CI_REGISTRY_USER`, `$CI_REGISTRY_PASSWORD`, `$CI_REGISTRY` are **built-in GitLab variables** — no need to set them manually
+- Pushes the image to `registry.gitlab.com/wdtech/wdtech-property-valuation`
+
+**Deploy stage:**
+- `aws eks update-kubeconfig` connects to the AWS EKS cluster
+- `kubectl set image` tells Kubernetes to roll out the new image to the running pods
+- Kubernetes pulls the new image from the registry and replaces the old containers automatically
+
+---
+
+### How EKS fits in:
+```
+GitLab Registry
+      ↓  (kubectl pulls new image)
+AWS EKS Cluster
+      ↓
+Kubernetes Deployment
+      ↓
+Running Pods (your FastAPI containers)
+      ↓
+Exposed via Load Balancer to the internet
+
+Environment Variables in EKS:
+Just like we used --env-file .env locally, in EKS you'd use a Kubernetes Secret or ConfigMap:
+yaml# kubernetes-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wdtech-property-valuation
+spec:
+  replicas: 2
+  template:
+    spec:
+      containers:
+        - name: wdtech-property-valuation
+          image: registry.gitlab.com/wdtech/wdtech-property-valuation:1.0.0
+          ports:
+            - containerPort: 8000
+          env:
+            - name: BASE_PRICE_PER_SQFT
+              value: "200"
+            - name: APP_ENV
+              value: "production"
+
+So in summary — every time a developer tags a release in GitLab, the pipeline automatically builds the image, pushes it to the registry, and deploys it to EKS without any manual intervention. Does that make sense?I want to personalize the explanation10:56 PMSure! Let me ask a few things to personalize it properly:Q: Who is this explanation for?
+A: My manager/interviewerQ: What level of technical detail?
+A: Deep - full technical breakdownQ: What format do you want?
+A: Step by step walkthrough10:56 PMGot it! One more question to make it truly personalized:Walkthrough with the apps we just created on docker10:57 PMPerfect! Here's your personalized walkthrough:
+
+CI/CD Pipeline & EKS Deployment — WDTech Property Valuation API
+
+Step 1: What We Built Locally
+"To start, I built a Property Valuation API using FastAPI and Python. The API takes property details like address, bedrooms, bathrooms, square footage, location score, and year built — and returns an estimated property value in USD.
+I containerized it using Docker with this Dockerfile:
+dockerfileFROM python:3.11-alpine
+
+WORKDIR /app
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY . .
+
+EXPOSE 8000
+
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+I then built and tagged the image using semantic versioning:
+powershelldocker build -t wdtech-property-valuation:1.0.0 .
+And ran it locally:
+powershelldocker run -d -p 8000:8000 --name wdtech-valuation-dev wdtech-property-valuation:1.0.0
+The API was accessible at http://localhost:8000/docs and returned a 200 OK with an estimated property value."
+
+Step 2: Environment Variables
+"One of the key requirements was making the API configurable without changing the code. I achieved this using environment variables.
+The API reads BASE_PRICE_PER_SQFT from the environment:
+pythonBASE_PRICE_PER_SQFT = float(os.getenv("BASE_PRICE_PER_SQFT", "150"))
+```
+
+I created a `.env` file:
+```
+BASE_PRICE_PER_SQFT=200
+APP_ENV=production
+And injected it into the container at runtime:
+powershelldocker run -d -p 8000:8000 --env-file .env --name wdtech-valuation-dev wdtech-property-valuation:1.0.0
+I verified the variable was applied:
+powershelldocker exec wdtech-valuation-dev env | findstr BASE_PRICE_PER_SQFT
+# OUTPUT: BASE_PRICE_PER_SQFT=200
+This means different environments — dev, staging, production — can all use the same Docker image but with different configurations. No code changes needed."
+
+Step 3: Designing the CI Pipeline
+"Now that the app works locally, the next step is automating the build and deployment process using a GitLab CI/CD pipeline.
+The pipeline has 3 stages — build, push, and deploy — triggered automatically whenever a new version tag is pushed to GitLab."
+.gitlab-ci.yml:
+yamlstages:
+  - build
+  - push
+  - deploy
+
+variables:
+  IMAGE_TAG: $CI_REGISTRY_IMAGE:$CI_COMMIT_TAG
+
+build:
+  stage: build
+  script:
+    - docker build -t $IMAGE_TAG .
+  only:
+    - tags
+
+push:
+  stage: push
+  script:
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    - docker push $IMAGE_TAG
+  only:
+    - tags
+
+deploy:
+  stage: deploy
+  script:
+    - aws eks update-kubeconfig --name wdtech-cluster --region us-east-1
+    - kubectl set image deployment/wdtech-property-valuation wdtech-property-valuation=$IMAGE_TAG
+  only:
+    - tags
+"Let me walk through each stage:
+Build stage — GitLab runner picks up the code and runs docker build, producing the same image I built locally — wdtech-property-valuation:1.0.0. The $CI_COMMIT_TAG variable ensures the image is tagged with the exact release version.
+Push stage — The image is pushed to the GitLab Container Registry using built-in GitLab variables $CI_REGISTRY_USER, $CI_REGISTRY_PASSWORD, and $CI_REGISTRY. No hardcoded credentials anywhere — GitLab manages this securely.
+Deploy stage — This is where EKS comes in. aws eks update-kubeconfig connects to our AWS EKS cluster, and kubectl set image tells Kubernetes to roll out the new version of the container across all running pods."
+
+Step 4: How EKS Runs the Container
+"In EKS, the API runs as a Kubernetes Deployment. This is the equivalent of our docker run command locally, but managed by Kubernetes at scale:
+yamlapiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wdtech-property-valuation
+spec:
+  replicas: 2
+  template:
+    spec:
+      containers:
+        - name: wdtech-property-valuation
+          image: registry.gitlab.com/wdtech/wdtech-property-valuation:1.0.0
+          ports:
+            - containerPort: 8000
+          env:
+            - name: BASE_PRICE_PER_SQFT
+              value: "200"
+            - name: APP_ENV
+              value: "production"
+```
+
+The `replicas: 2` means Kubernetes runs **2 instances** of the container simultaneously — so if one pod goes down, the other keeps serving requests. The environment variables we tested locally with `--env-file .env` are defined here directly in the deployment manifest."
+
+---
+
+### Step 5: The Full End-to-End Flow
+"Putting it all together, this is what happens from code to production:
+```
+Developer pushes tag v1.0.0 to GitLab
+        ↓
+GitLab CI triggers automatically
+        ↓
+BUILD — docker build creates wdtech-property-valuation:1.0.0
+        ↓
+PUSH — image pushed to registry.gitlab.com/wdtech/wdtech-property-valuation
+        ↓
+DEPLOY — kubectl updates EKS deployment with new image
+        ↓
+Kubernetes pulls image from GitLab registry
+        ↓
+2 pods running wdtech-property-valuation:1.0.0
+        ↓
+API live at https://api.wdtech.com/valuate
+The whole process is fully automated — no manual SSH, no manual docker pull, no downtime. Every release is traceable back to a Git tag and a specific Docker image."
+
+That's your full personalized walkthrough. Would you like me to export this as a Word document you can reference during your explanation?
