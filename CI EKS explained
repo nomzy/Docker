@@ -1,5 +1,3 @@
-
-
 CI/CD Pipeline for EKS — Explained
 What is a CI/CD Pipeline?
 A CI/CD pipeline automates the process of building, testing, and deploying your application every time code is pushed to GitLab. No manual steps needed.
