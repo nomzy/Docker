@@ -1,0 +1,425 @@
+Epic: Docker & AWS EKS Onboarding Tasks (If needed)
+JIRA TICKET
+Project: WDTech Platform Engineering
+Issue Type: Task
+Priority: Low
+Assignee: Onome
+Labels: Docker, FastAPI, Python, EKS, CI/CD, GitLab
+
+Title:
+[DEVOPS] Build, Containerize and Deploy WDTech Property Valuation API using Docker & GitLab Registry
+
+Description
+As part of the onboarding 30/60/90-Day Plan, this ticket covers the end-to-end process of building a backend application using FastAPI, containerizing it with Docker, running it locally with environment variables, designing a CI/CD pipeline for EKS deployment, and pulling a published image from the WDTech GitLab Container Registry.
+
+Background
+The goal of this task was to demonstrate understanding of:
+
+Docker fundamentals — building, tagging, running and debugging containers
+Environment variable injection into Docker containers
+CI/CD pipeline design for backend applications deployed to AWS EKS
+Working with the WDTech self-hosted GitLab Container Registry
+
+The application built is a Property Valuation API — a real estate themed backend service that accepts property details and returns an estimated property value in USD.
+
+Task 1: Build & Run a WDTech Project Locally
+Objective: Build a backend application, containerize it, tag it with semver, run it locally and verify it works.
+Application Stack:
+
+Language: Python 3.11
+Framework: FastAPI
+Server: Uvicorn
+Dependencies: FastAPI, Uvicorn, Pydantic
+
+Project Structure Created:
+wdtech-property-valuation/
+├── app/
+│   ├── __init__.py
+│   ├── main.py
+│   └── models.py
+├── Dockerfile
+├── requirements.txt
+└── .env
+
+Application Code:
+app/models.py — Defines the Property data model using Pydantic:
+from pydantic import BaseModel
+
+class Property(BaseModel):
+    address: str
+    bedrooms: int
+    bathrooms: int
+    square_feet: float
+    location_score: float
+    year_built: int
+
+app/main.py — FastAPI application with two endpoints:
+from fastapi import FastAPI
+from app.models import Property
+import os
+
+app = FastAPI(title="WDTech Property Valuation API")
+
+BASE_PRICE_PER_SQFT = float(os.getenv("BASE_PRICE_PER_SQFT", "150"))
+API_ENV = os.getenv("APP_ENV", "development")
+
+@app.get("/health")
+def health():
+    return {"status": "ok", "env": API_ENV}
+
+@app.post("/valuate")
+def valuate_property(property: Property):
+    base_value = property.square_feet * BASE_PRICE_PER_SQFT
+    bedroom_bonus = property.bedrooms * 10000
+    bathroom_bonus = property.bathrooms * 5000
+    location_multiplier = 1 + (property.location_score / 100)
+    age_penalty = max(0, (2024 - property.year_built)) * 200
+    estimated_value = (base_value + bedroom_bonus + bathroom_bonus) * location_multiplier - age_penalty
+
+    return {
+        "address": property.address,
+        "estimated_value": round(estimated_value, 2),
+        "currency": "USD",
+        "env": API_ENV
+    }
+```
+
+`requirements.txt`:
+```
+fastapi
+uvicorn
+pydantic
+
+Dockerfile Created:
+FROM python:3.11-alpine
+
+WORKDIR /app
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY . .
+
+EXPOSE 8000
+
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+
+Steps Executed (PowerShell):
+
+1. Created project structure:
+mkdir wdtech-property-valuation
+cd wdtech-property-valuation
+mkdir app
+New-Item -Path "app\__init__.py" -ItemType File
+New-Item -Path "app\main.py" -ItemType File
+New-Item -Path "app\models.py" -ItemType File
+New-Item -Path "requirements.txt" -ItemType File
+New-Item -Path "Dockerfile" -ItemType File
+New-Item -Path ".env" -ItemType File
+
+2. Verified project structure:
+tree /F
+```
+Output:
+```
+C:.
+│   .env
+│   Dockerfile
+│   requirements.txt
+│
+└───app
+        __init__.py
+        main.py
+        models.py
+
+3. Built the Docker image with semver tag:
+docker build -t wdtech-property-valuation:1.0.0 .
+Output confirmed all 5 build steps completed successfully including installing FastAPI 0.133.0, Uvicorn 0.41.0, and Pydantic 2.12.5.
+
+4. Confirmed image was created:
+docker images | findstr wdtech-property-valuation
+```
+Output:
+```
+wdtech-property-valuation:1.0.0   cddccb602c51   124MB   29.7MB
+
+5. Ran the container locally:
+docker run -d -p 8000:8000 --name wdtech-valuation-dev wdtech-property-valuation:1.0.0
+```
+Output:
+```
+f83f18fee3efbb983855153aadf21150ac547b590e59c0c3b208be74ca6657ac
+
+6. Viewed container logs:
+docker logs wdtech-valuation-dev
+```
+Output:
+```
+INFO:     Started server process [1]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:     172.17.0.1:55346 - "GET /docs HTTP/1.1" 200 OK
+INFO:     172.17.0.1:55346 - "GET /openapi.json HTTP/1.1" 200 OK
+
+7. Verified API was accessible at http://localhost:8000/docs — FastAPI Swagger UI loaded successfully showing:
+* GET /health
+* POST /valuate
+
+8. Verified container was running:
+docker ps
+```
+Output:
+```
+CONTAINER ID   IMAGE                             COMMAND          STATUS         PORTS                    NAMES
+98f032b87fe3   wdtech-property-valuation:1.0.0   "uvicorn app…"   Up 59 seconds  0.0.0.0:8000->8000/tcp   wdtech-valuation-dev
+```
+
+**Outcome:** Container built, tagged, running and serving requests successfully. ✅
+
+---
+
+### Task 2: Run with Environment Variables & CI/CD Pipeline Design
+
+**Objective:** Inject environment variables into the container, verify they are applied, and design a CI/CD pipeline for EKS deployment.
+
+**Environment Variables Used:**
+
+`.env` file:
+```
+BASE_PRICE_PER_SQFT=200
+APP_ENV=production
+
+Steps Executed:
+1. Stopped and removed previous container:
+docker stop wdtech-valuation-dev
+docker rm wdtech-valuation-dev
+
+2. Ran container with environment variables:
+docker run -d -p 8000:8000 --env-file .env --name wdtech-valuation-dev wdtech-property-valuation:1.0.0
+```
+Output:
+```
+926343f5293fcf24725ccf5467c00d90b522c9da3b8e15894ecbaf124d977fec
+
+3. Verified environment variable was injected:
+docker exec wdtech-valuation-dev env | findstr BASE_PRICE_PER_SQFT
+```
+Output:
+```
+BASE_PRICE_PER_SQFT=200
+
+4. Viewed logs to confirm container started correctly:
+docker logs wdtech-valuation-dev
+```
+Output:
+```
+INFO:     Started server process [1]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+
+5. Tested /valuate endpoint via Swagger UI with payload:
+{
+  "address": "123 Main St",
+  "bedrooms": 3,
+  "bathrooms": 2,
+  "square_feet": 1500,
+  "location_score": 8,
+  "year_built": 2005
+}
+  Response:
+{
+  "address": "123 Main St",
+  "estimated_value": 363400.00,
+  "currency": "USD",
+  "env": "development"
+}
+
+Confirmed estimated_value used $200/sqft from the injected environment variable. ✅
+CI/CD Pipeline Design for EKS:
+.gitlab-ci.yml:
+
+stages:
+  - build
+  - push
+  - deploy
+
+variables:
+  IMAGE_TAG: $CI_REGISTRY_IMAGE:$CI_COMMIT_TAG
+
+build:
+  stage: build
+  script:
+    - docker build -t $IMAGE_TAG .
+  only:
+    - tags
+
+push:
+  stage: push
+  script:
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    - docker push $IMAGE_TAG
+  only:
+    - tags
+
+deploy:
+  stage: deploy
+  script:
+    - aws eks update-kubeconfig --name wdtech-cluster --region us-east-1
+    - kubectl set image deployment/wdtech-property-valuation wdtech-property-valuation=$IMAGE_TAG
+  only:
+    - tags
+
+Kubernetes Deployment Manifest:
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wdtech-property-valuation
+spec:
+  replicas: 2
+  template:
+    spec:
+      containers:
+        - name: wdtech-property-valuation
+          image: registry.gitlab.com/wdtech/wdtech-property-valuation:1.0.0
+          ports:
+            - containerPort: 8000
+          env:
+            - name: BASE_PRICE_PER_SQFT
+              value: "200"
+            - name: APP_ENV
+              value: "production"
+```
+
+**End-to-End Pipeline Flow:**
+```
+Developer pushes tag v1.0.0 to GitLab
+        ↓
+GitLab CI triggers automatically
+        ↓
+BUILD — docker build creates wdtech-property-valuation:1.0.0
+        ↓
+PUSH — image pushed to docker-registry.wdtech.org
+        ↓
+DEPLOY — kubectl updates EKS deployment with new image
+        ↓
+Kubernetes pulls image and rolls out 2 pods
+        ↓
+API live and serving requests
+```
+
+**Outcome:** Environment variables successfully injected and verified. CI/CD pipeline designed for full EKS deployment. ✅
+
+---
+
+### Task 3: Pull a Docker Image from the GitLab Registry
+
+**Objective:** Identify a WDTech project with a published image, pull it from the GitLab registry, run it locally, inspect it and view logs.
+
+**Steps Executed:**
+
+1. Searched for WDTech projects in GitLab at `git.wdtech.org` and identified the **Docker / Golden Images** group containing Python, Go, Nginx, Node and Debian projects.
+
+2. Selected the **Python** project and navigated to **Deploy → Container Registry** at:
+```
+git.wdtech.org/docker/golden-images/python/container_registry
+```
+Confirmed 1 image repository with **311 published tags**.
+
+3. Clicked **CLI commands** to get the correct registry URL:
+```
+docker-registry.wdtech.org
+
+4. Generated a Personal Access Token in GitLab with read_registry scope since password authentication was rejected with unauthorized: HTTP Basic: Access denied.
+5. Logged into the registry:
+docker login docker-registry.wdtech.org
+Username: odakara
+Password: <personal_access_token>
+```
+Output:
+```
+Login Succeeded
+
+6. Identified latest tag as 3.11-sp27 from the tags list and pulled the image:
+docker pull docker-registry.wdtech.org/docker/golden-images/python:3.11-sp27
+```
+Output:
+```
+3.11-sp27: Pulling from docker/golden-images/python
+6737552db2d4: Pull complete
+261f8b258888: Pull complete
+c1cbb58b63c8: Pull complete
+e3143549f2b8: Pull complete
+23d55a674b2e: Pull complete
+72e8e93b0d01: Pull complete
+63cba8532b81: Pull complete
+e7230fc042be: Pull complete
+Digest: sha256:67bb09a610b8854f47b158ecaad991faf21dd746c2304e1dbab3363067b6891e
+Status: Downloaded newer image for docker-registry.wdtech.org/docker/golden-images/python:3.11-sp27
+
+7. Ran the container locally:
+docker run -d --name wdtech-python docker-registry.wdtech.org/docker/golden-images/python:3.11-sp27
+```
+Output:
+```
+7257f30e611bea64443693587cfdd1f4543d464d15954e6965b2e9c3ab3df9a3
+
+8. Inspected the image:
+docker inspect docker-registry.wdtech.org/docker/golden-images/python:3.11-sp27
+
+
+Key findings:(Not sure if you need this in the Jira)
+Field                Value
+Id                   sha256:67bb09a610b8854...
+RepoTags             docker-registry.wdtech.org/docker/golden-images/python:3.11-sp27
+Created              2026-02-20T14:30:54
+PYTHON_VERSION       3.11.14
+Architecture         amd64
+OS                   linux
+Size                 454MB
+Cmd                  python3
+Layers               8 layers
+
+9.Viewed container logs:
+docker logs wdtech-python
+No output returned — expected behavior since this is a base Python image with Cmd: python3 and no running script.
+
+10. Confirmed container status:
+docker ps -a | findstr wdtech-python
+```
+Output:
+```
+7257f30e611b   docker-registry.wdtech.org/docker/golden-images/python:3.11-sp27   "python3"   4 minutes ago   Exited (0)
+Exited (0) confirms clean exit with no errors. ✅
+Outcome: Image successfully pulled from WDTech GitLab registry, container ran and inspected successfully. ✅
+
+
+Acceptance Criteria
+
+ Dockerfile created and image built successfully
+ Image tagged with semver 1.0.0
+ Container running locally on port 8000
+ API accessible at http://localhost:8000/docs
+ Environment variables injected and verified
+ /valuate endpoint returning correct valuation using env var
+ CI/CD pipeline designed for EKS deployment
+ Logged into WDTech GitLab Container Registry
+ Latest image python:3.11-sp27 pulled successfully
+ Container ran and inspected
+ Logs viewed and explained
+
+Definition of Done
+All three tasks completed, verified and documented. Container images built locally and pulled from the WDTech GitLab registry. CI/CD pipeline designed for automated EKS deployment. All commands executed in PowerShell on Windows.
+
+
+
+
+
+
+
+
+
+
+
+
