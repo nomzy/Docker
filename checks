@@ -1,3 +1,5 @@
+Invoke-WebRequest -Uri "https://docker-registry.wdtech.org/v2/docker/golden-images/python/tags/list"
+
 Tasks1.Build & Run a  Project Locally - https://walkerdunlop.atlassian.net/browse/DATA-11413
 Select any WDTech project
 If a Dockerfile does not exist, create one
