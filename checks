@@ -17,6 +17,8 @@ docker exec wdtech-python-env env | findstr PYTHON_ENV
 docker run --name wdtech-python docker-registry.wdtech.org/docker/golden-images/python:3.11-sp27 python3 -c "import time; import os; print('Container started'); print('Python version:', os.sys.version); print('Environment:', dict(os.environ)); time.sleep(3600)"
 Invoke-WebRequest -Uri "https://docker-registry.wdtech.org/v2/docker/golden-images/python/tags/list"
 
+docker run -d -p 8080:8080 --name wdtech-python-env -e PYTHON_ENV=production -e APP_VERSION=3.11.14 docker-registry.wdtech.org/docker/golden-images/python:3.11-sp27 python3 -c "import http.server; import socketserver; import os; print('Container started'); print('Python version:', os.sys.version); print('PYTHON_ENV:', os.getenv('PYTHON_ENV')); print('APP_VERSION:', os.getenv('APP_VERSION')); handler = http.server.SimpleHTTPRequestHandler; httpd = socketserver.TCPServer(('', 8080), handler); print('Serving on port 8080'); httpd.serve_forever()"
+
 Tasks1.Build & Run a  Project Locally - https://walkerdunlop.atlassian.net/browse/DATA-11413
 Select any WDTech project
 If a Dockerfile does not exist, create one
