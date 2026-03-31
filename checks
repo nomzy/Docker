@@ -1,0 +1,38 @@
+Tasks1.Build & Run a  Project Locally - https://walkerdunlop.atlassian.net/browse/DATA-11413
+Select any WDTech project
+If a Dockerfile does not exist, create one
+Build the docker image locally
+Tag it appropriately (follow semver)
+Confirm the image was created successfully
+Run the container locally
+If the container runs successfully, explain how to view logs and how to expose the required ports
+If it fails, demonstrate how to debug by running the container interactively and view the logs
+Run a Project with Environment Variables - https://walkerdunlop.atlassian.net/browse/DATA-11414
+Select any WDTech project with configurable settings.
+Update the Dockerfile or docker run command to pass environment variables.
+Build and run the container locally with the environment variables.
+Verify the container behaves as expected with the new settings.
+Show how to view logs to confirm the environment variables are applied.
+
+Pull a Docker Image from the Gitlab registry
+Identify a WDTech project with an image published in the GitLab container registry.
+Pull the latest tagged image from the GitLab registry.
+Run the container locally and verify it works.
+Show how to inspect the image and view container logs.
+
+4.Build & Run a WDTech Project Locally 
+Select any WDTech project
+If a Dockerfile does not exist, create one
+Build the docker image locally
+Tag it appropriately (follow semver)
+Confirm the image was created successfully
+Run the container locally
+If the container runs successfully, explain how to view logs and how to expose the required ports
+If it fails, demonstrate how to debug by running the container interactively and view the logs
+
+Run a WDTech Project with Environment Variables 
+Select any WDTech project with configurable settings.
+Update the Dockerfile or docker run command to pass environment variables.
+Build and run the container locally with the environment variables.
+Verify the container behaves as expected with the new settings.
+Show how to view logs to confirm the environment variables are applied.
