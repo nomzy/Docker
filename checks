@@ -14,7 +14,7 @@ Then verify the env vars were injected:
 
 docker exec wdtech-python-env env | findstr PYTHON_ENV
 
-
+docker run --name wdtech-python docker-registry.wdtech.org/docker/golden-images/python:3.11-sp27 python3 -c "import time; import os; print('Container started'); print('Python version:', os.sys.version); print('Environment:', dict(os.environ)); time.sleep(3600)"
 Invoke-WebRequest -Uri "https://docker-registry.wdtech.org/v2/docker/golden-images/python/tags/list"
 
 Tasks1.Build & Run a  Project Locally - https://walkerdunlop.atlassian.net/browse/DATA-11413
