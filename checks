@@ -1,3 +1,20 @@
+docker run -d --name wdtech-python-env `
+  -e PYTHON_ENV=production `
+  -e APP_VERSION=3.11.14 `
+  docker-registry.wdtech.org/docker/golden-images/python:3.11-sp27 `
+  python3 -c "import os; import time; print(os.environ); time.sleep(3600)"
+
+What this does:
+
+-e PYTHON_ENV=production — injects environment variable
+-e APP_VERSION=3.11.14 — injects another environment variable
+python3 -c "..." — runs a Python command that prints env vars and keeps the container alive for 1 hour
+
+Then verify the env vars were injected:
+
+docker exec wdtech-python-env env | findstr PYTHON_ENV
+
+
 Invoke-WebRequest -Uri "https://docker-registry.wdtech.org/v2/docker/golden-images/python/tags/list"
 
 Tasks1.Build & Run a  Project Locally - https://walkerdunlop.atlassian.net/browse/DATA-11413
